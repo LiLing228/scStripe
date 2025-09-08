@@ -7,9 +7,9 @@
 ## Features
 
 - **Stripe Detection**: Matrix segmentation and changepoint-based detection; supports both `.txt` contact matrices and `.cool` files.  
-- **Post-processing**: Merge results from chromosome-level detection, remove redundant/overlapping stripes, and produce unified outputs.  
+- **Post-processing**: Merge results from chromosome-level detection, remove redundant/overlapping stripes, and produce unified outputs (BED/BEDPE optional).  
 - **Cell-level Scoring**: Compute stripe scores for each cell from per-cell pairs files.  
-- **Statistical Analysis**: Evaluate stripiness and p-values (two metrics originally proposed in Stripenn), with BED/BEDPE export.  
+- **Statistical Analysis**: Evaluate stripiness and p-values (two metrics originally proposed in Stripenn).  
 
 ---
 
@@ -64,9 +64,9 @@ scstripe score-cells \
 ```bash
 scstripe add-stripiness \
   --cool /path/to/sample_10kb.cool \
-  --candidates /path/to/outdir/processed_results.tsv \
-  --outdir /path/to/outdir \
-  --norm weight \
+  --stripe-file /path/to/outdir/processed_results.tsv \
+  --output /path/to/outdir/processed_results_add_stripiness_pvalue.tsv \
+  --cool-norm weight \
   --chrom from_file
 ```
 

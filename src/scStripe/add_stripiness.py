@@ -142,7 +142,7 @@ def compute_stripiness_table(
 def run(
     *,
     cool: Path,
-    stripes_path: Path,
+    stripe_file: Path,
     stripes_add_stripiness_pvalue_path: Path,
     norm: str | bool = "None",
     chrom: str = "all",
@@ -155,7 +155,7 @@ def run(
     -------
     stripes_add_stripiness_pvalue_path
     """
-    stripes_df = read_tsv(stripes_path, REQUIRED_COLS)
+    stripes_df = read_tsv(stripe_file, REQUIRED_COLS)
 
     # chrom list from file if requested
     chroms_for_calc = (",".join(unique_sorted_chroms(stripes_df, "chr"))

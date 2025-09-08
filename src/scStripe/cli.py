@@ -101,9 +101,9 @@ def score_cells(
 @app.command("add-stripiness")
 def add_stripiness_cmd(
     cool: Path = typer.Option(..., "--cool", help="Path to input .cool file"),
-    stripes_path: Path = typer.Option(..., "--stripes-path", help="Path to stripes TSV"),
+    stripe_file: Path = typer.Option(..., "--stripe-file", help="Path to stripes TSV"),
     output: Path = typer.Option(..., "--output", help="Path to output TSV (stripiness + p-values)"),
-    norm: str = typer.Option("None", "--norm", help="None | weight | <bins column in .cool>"),
+    norm: str = typer.Option("None", "--cool-norm", help="None | weight | <bins column in .cool>"),
     chrom: str = typer.Option("all", "--chrom", help="'all', comma list, or 'from_file'"),
     numcores: int = typer.Option(10, "--numcores", help="Parallel jobs"),
     mask: str = typer.Option("0", "--mask", help="Mask region like 'chr1:100000-200000' or '0'"),
@@ -116,7 +116,7 @@ def add_stripiness_cmd(
 
     out_path = run_stripiness(
         cool=cool,
-        stripes_path=stripes_path,
+        stripe_file=stripe_file,
         stripes_add_stripiness_pvalue_path=output,
         norm=norm,
         chrom=chrom,
