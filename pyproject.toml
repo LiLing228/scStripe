@@ -22,8 +22,8 @@ dependencies = [
 ]
 
 [project.scripts]
-scstripe = "scStripe.cli:main"   
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["scStripe*"]
+scstripe = "scStripe.cli:main"
 
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["scStripe*"]
