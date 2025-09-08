@@ -17,7 +17,8 @@ dependencies = [
   "typer==0.15.2",
   "cooler==0.9.1",
   "scipy==1.12.0",
-  "ruptures==1.1.9"
+  "ruptures==1.1.9",
+  "diptest==0.8.2"
 ]
 
 [project.scripts]
