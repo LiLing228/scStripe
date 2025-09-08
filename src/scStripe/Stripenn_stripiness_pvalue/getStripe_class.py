@@ -1,10 +1,8 @@
 import numpy as np
 import pandas as pd
 import math
-import matplotlib
 from .stats import *  
 from . import stats  
-matplotlib.use('pdf')
 import time
 import random
 from joblib import Parallel, delayed
