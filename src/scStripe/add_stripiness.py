@@ -5,7 +5,6 @@ from __future__ import annotations
 import warnings
 from pathlib import Path
 from typing import Iterable, List, Tuple
-
 import numpy as np
 import pandas as pd
 import cooler
@@ -27,26 +26,6 @@ def read_tsv(path: Path, required_cols: Iterable[str]) -> pd.DataFrame:
     if num_cols:
         df[num_cols] = df[num_cols].apply(pd.to_numeric, errors="coerce")
     return df
-
-
-def write_bedpe_and_bed(df: pd.DataFrame, out_dir: Path, stem: str, bed_axis: str = "col") -> Tuple[Path, Path]:
-    """
-    Export BEDPE (chr,pos1,pos2,chr2,pos3,pos4) and BED.
-    bed_axis: 'row' -> BED uses (chr,pos1,pos2); 'col' -> BED uses (chr2,pos3,pos4).
-    """
-    out_dir.mkdir(parents=True, exist_ok=True)
-    bedpe_path = out_dir / f"{stem}.bedpe"
-    bed_path = out_dir / f"{stem}.bed"
-
-    bedpe = df[["chr", "pos1", "pos2", "chr2", "pos3", "pos4"]]
-    if bed_axis == "row":
-        bed = df[["chr", "pos1", "pos2"]]
-    else:
-        bed = df[["chr2", "pos3", "pos4"]]
-
-    bedpe.to_csv(bedpe_path, sep="\t", header=False, index=False)
-    bed.to_csv(bed_path,   sep="\t", header=False, index=False)
-    return bedpe_path, bed_path
 
 
 def unique_sorted_chroms(df: pd.DataFrame, col: str = "chr") -> List[str]:
@@ -71,7 +50,7 @@ def filter_default_chroms(chroms: List[str]) -> List[str]:
 
 def compute_stripiness_table(
     cool_path: Path,
-    candidates: pd.DataFrame,
+    stripe_file: pd.DataFrame,
     *,
     norm: str | bool = "None",
     chroms: List[str] | str = "all",
@@ -140,17 +119,16 @@ def compute_stripiness_table(
     # init getStripe object
     obj = getStripe(mat_accessor, resol, all_chromnames, chromnames, lib.chromsizes, chromsizes, numcores, bfilter)
 
-    print("2. Expected value calculation ...")
+    print("1. Expected value calculation ...")
     ev = obj.mpmean()
 
-    print("3. Background distribution estimation ...")
+    print("2. Background distribution estimation ...")
     bgleft_up, bgright_up, bgleft_down, bgright_down = obj.nulldist()
 
-    # evaluate candidates
-    print("4. Evaluating candidate stripes ...")
-    cand_pval = obj.extract(candidates, bgleft_up, bgright_up, bgleft_down, bgright_down)
+    print("3. Evaluating stripes ...")
+    cand_pval = obj.extract(stripe_file, bgleft_up, bgright_up, bgleft_down, bgright_down)
 
-    print("5. Stripiness calculation ...")
+    print("4. Stripiness calculation ...")
     print("Chromosomes after filtering:", obj.chromnames)
     res = obj.scoringstripes(cand_pval, ev, mask)
     assert isinstance(res, (list, tuple)) and len(res) > 0, "Unexpected return from scoringstripes"
@@ -164,38 +142,29 @@ def compute_stripiness_table(
 def run(
     *,
     cool: Path,
-    candidates_path: Path,
-    outdir: Path,
+    stripes_path: Path,
+    stripes_add_stripiness_pvalue_path: Path,
     norm: str | bool = "None",
     chrom: str = "all",
     numcores: int = 10,
     mask: str = "0",
-    bfilter: int = 3,
-    stem: str = "processed_results",
-    bed_axis: str = "col",
-) -> Tuple[Path, Path, Path]:
+    bfilter: int = 3
+) -> Path:
     """
-    High-level runner: load candidates -> BED/BEDPE -> compute stripiness -> write TSV.
-
     Returns
     -------
-    (bedpe_path, bed_path, out_tsv_path)
+    stripes_add_stripiness_pvalue_path
     """
-    # load candidates
-    cand_df = read_tsv(candidates_path, REQUIRED_COLS)
+    stripes_df = read_tsv(stripes_path, REQUIRED_COLS)
 
-    # write BED/BEDPE
-    bedpe_path, bed_path = write_bedpe_and_bed(cand_df, outdir, stem, bed_axis=bed_axis)
-
-    # chrom list
-    chroms_for_calc = (",".join(unique_sorted_chroms(cand_df, "chr"))
+    # chrom list from file if requested
+    chroms_for_calc = (",".join(unique_sorted_chroms(stripes_df, "chr"))
                        if chrom.strip().lower() == "from_file"
                        else chrom)
 
-    # compute
     out_df = compute_stripiness_table(
         cool_path=cool,
-        candidates=cand_df,
+        stripe_file=stripes_df,
         norm=norm,
         chroms=chroms_for_calc,
         numcores=numcores,
@@ -203,8 +172,6 @@ def run(
         bfilter=bfilter,
     )
 
-    out_tsv = outdir / f"{stem}_add_stripiness_pvalue.tsv"
-    outdir.mkdir(parents=True, exist_ok=True)
-    out_df.to_csv(out_tsv, sep="\t", index=False)
-
-    return bedpe_path, bed_path, out_tsv
+    stripes_add_stripiness_pvalue_path.parent.mkdir(parents=True, exist_ok=True)
+    out_df.to_csv(stripes_add_stripiness_pvalue_path, sep="\t", index=False)
+    return stripes_add_stripiness_pvalue_path

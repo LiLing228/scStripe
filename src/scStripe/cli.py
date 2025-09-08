@@ -101,32 +101,32 @@ def score_cells(
 @app.command("add-stripiness")
 def add_stripiness_cmd(
     cool: Path = typer.Option(..., "--cool", help="Path to input .cool file"),
-    candidates: Path = typer.Option(..., "--candidates", help="Path to candidate stripes TSV"),
-    outdir: Path = typer.Option(..., "--outdir", help="Output directory"),
+    stripes_path: Path = typer.Option(..., "--stripes-path", help="Path to stripes TSV"),
+    output: Path = typer.Option(..., "--output", help="Path to output TSV (stripiness + p-values)"),
     norm: str = typer.Option("None", "--norm", help="None | weight | <bins column in .cool>"),
-    chrom: str = typer.Option("all", "--chrom", help="Comma list, 'all', or 'from_file'"),
-    numcores: int = typer.Option(10, "--numcores"),
-    mask: str = typer.Option("0", "--mask"),
-    bfilter: int = typer.Option(3, "--bfilter"),
-    stem: str = typer.Option("processed_results", "--stem", help="Output stem name"),
-    bed_axis: str = typer.Option("col", "--bed-axis", help="'row' or 'col' for BED export"),
+    chrom: str = typer.Option("all", "--chrom", help="'all', comma list, or 'from_file'"),
+    numcores: int = typer.Option(10, "--numcores", help="Parallel jobs"),
+    mask: str = typer.Option("0", "--mask", help="Mask region like 'chr1:100000-200000' or '0'"),
+    bfilter: int = typer.Option(3, "--bfilter", help="Background filter level"),
 ):
-    """Compute Stripenn stripiness & p-values for candidate stripes and export BED/BEDPE/TSV."""
-    bedpe, bed, out_tsv = run_stripiness(
+    """
+    Compute Stripenn stripiness & p-values for stripes.
+    """
+    output.parent.mkdir(parents=True, exist_ok=True)
+
+    out_path = run_stripiness(
         cool=cool,
-        candidates_path=candidates,
-        outdir=outdir,
+        stripes_path=stripes_path,
+        stripes_add_stripiness_pvalue_path=output,
         norm=norm,
         chrom=chrom,
         numcores=numcores,
         mask=mask,
         bfilter=bfilter,
-        stem=stem,
-        bed_axis=bed_axis,
     )
-    typer.echo(f"[OK] BEDPE: {bedpe}")
-    typer.echo(f"[OK] BED  : {bed}")
-    typer.echo(f"[OK] Stripiness TSV: {out_tsv}")
+
+    typer.echo(f"[OK] Stripiness TSV: {out_path}")
+
 
 def main():
     app()

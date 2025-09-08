@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
 
-
 def _clean_group(
     n: int,
     subdf: pd.DataFrame,
@@ -160,6 +159,25 @@ def parse_stripe(file_path: Path, chr_num: str, resolution: int) -> Optional[pd.
     if "split_mat_id" in df.columns:
         cols.append("split_mat_id")
     return df[cols]
+
+
+def write_bedpe_and_bed(df: pd.DataFrame, out_dir: Path, stem: str) -> Tuple[Path, Path]:
+    """
+    Export BEDPE (chr,pos1,pos2,chr2,pos3,pos4) and BED.
+    BED is always based on (chr2,pos3,pos4).
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    bedpe_path = out_dir / f"{stem}.bedpe"
+    bed_path = out_dir / f"{stem}.bed"
+
+    bedpe = df[["chr", "pos1", "pos2", "chr2", "pos3", "pos4"]]
+    bedpe.to_csv(bedpe_path, sep="\t", header=False, index=False)
+
+    bed = df[["chr2", "pos3", "pos4"]]
+    bed.to_csv(bed_path, sep="\t", header=False, index=False)
+
+    return bedpe_path, bed_path
+
 # ------------------------- Main Entry ------------------------- #
 
 def process_all(
@@ -190,11 +208,14 @@ def process_all(
 
     combined = pd.concat(all_dfs, ignore_index=True)
 
-    raw_tsv = results_dir / "processed_results_row.tsv"
+    raw_tsv = results_dir / "processed_results_raw.tsv"
     combined.to_csv(raw_tsv, sep="\t", index=False)
 
     final_df = remove_redundant(combined, split_length, step_size, n_jobs=n_jobs)
     final_tsv = results_dir / "processed_results.tsv"
     final_df.to_csv(final_tsv, sep="\t", index=False)
+
+    # export BEDPE & BED here
+    write_bedpe_and_bed(final_df, results_dir, stem="processed_results")
 
     return raw_tsv, final_tsv
