@@ -1,4 +1,3 @@
-cat > README.md << 'EOF'
 # scStripe
 
 **scStripe** is a toolkit for stripe detection and analysis in single-cell Hi-C (scHi-C) data.  
