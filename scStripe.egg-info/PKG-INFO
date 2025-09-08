@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: scStripe
+Version: 0.1.0
+Summary: Stripe detection, post-processing, and stripiness scoring
+Author: Ling Li
+Requires-Python: <3.11,>=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: numpy==1.23.5
+Requires-Dist: pandas==1.5.3
+Requires-Dist: joblib==1.4.2
+Requires-Dist: typer==0.15.2
+Requires-Dist: cooler==0.9.1
+Requires-Dist: scipy==1.12.0
+Requires-Dist: ruptures==1.1.9

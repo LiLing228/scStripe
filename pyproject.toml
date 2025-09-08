@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scStripe"
+version = "0.1.0"
+description = "Stripe detection, post-processing, and stripiness scoring"
+readme = "README.md"
+requires-python = ">=3.10,<3.11"
+authors = [{ name = "Ling Li" }]
+
+dependencies = [
+  "numpy==1.23.5",
+  "pandas==1.5.3",
+  "joblib==1.4.2",
+  "typer==0.15.2",
+  "cooler==0.9.1",
+  "scipy==1.12.0",
+  "ruptures==1.1.9"
+]
+
+[project.scripts]
+scstripe = "scStripe.cli:main"   
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["scStripe*"]
+
