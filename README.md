@@ -18,7 +18,7 @@
 Clone the repository and install in editable mode:
 
 ```bash
-git clone https://github.com/<LiLing228>/scStripe.git
+git clone https://github.com/LiLing228/scStripe.git
 cd scStripe
 pip install -e .
 ```
