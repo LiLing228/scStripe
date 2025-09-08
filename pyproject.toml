@@ -18,7 +18,8 @@ dependencies = [
   "cooler==0.9.1",
   "scipy==1.12.0",
   "ruptures==1.1.9",
-  "diptest==0.8.2"
+  "diptest==0.8.2",
+  "statsmodels==0.14.4"
 ]
 
 [project.scripts]
