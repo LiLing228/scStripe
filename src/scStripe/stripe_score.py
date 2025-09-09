@@ -33,7 +33,6 @@ def _process_cell(
         header=None,
         usecols=usecols,
         dtype=str,        
-        low_memory=False, 
         comment="#",
         engine="python",
     )
