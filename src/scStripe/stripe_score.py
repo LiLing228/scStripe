@@ -26,8 +26,29 @@ def _process_cell(
 
     print(f"Processing {cellname}")
     usecols = [chr1_col, pos1_col, chr2_col, pos2_col]
-    df_pairs = pd.read_csv(pair_file, sep=r"\s+", header=None, usecols=usecols)
+
+    df_pairs = pd.read_csv(
+        pair_file,
+        sep=r"\s+",
+        header=None,
+        usecols=usecols,
+        dtype=str,        
+        low_memory=False, 
+        comment="#",
+        engine="python",
+    )
     df_pairs.columns = ["chr1", "pos1", "chr2", "pos2"]
+
+    for c in ("pos1", "pos2"):
+        s = df_pairs[c].fillna("").str.replace(",", "", regex=False).str.strip()
+        df_pairs[c] = pd.to_numeric(s, errors="coerce")
+
+    df_pairs = df_pairs.dropna(subset=["pos1", "pos2"]).copy()
+    df_pairs["pos1"] = df_pairs["pos1"].astype("int64")
+    df_pairs["pos2"] = df_pairs["pos2"].astype("int64")
+
+    for c in ("chr1", "chr2"):
+        df_pairs[c] = df_pairs[c].astype(str).str.strip()
 
     ratios: List[float] = []
     for _, row in df_stripe.iterrows():
