@@ -14,8 +14,8 @@ app = typer.Typer(add_completion=False, help="Stripe toolkit CLI")
 
 @app.command("detect")
 def detect(
-    input: Path = typer.Option(..., "--input", help="Path to input contact matrix (.txt)"),
-    output: Path = typer.Option(..., "--output", "-o", help="Output directory"),
+    input: Path = typer.Option(..., "--input", help="Path to input contact matrix (.txt or .cool)"),
+    output: Path = typer.Option(..., "--output", "-o", help="Output base directory (results will go into OUTPUT/CHROM/)"),
     penalty: float = typer.Option(0.1, "--penalty"),
     fold_threshold1: float = typer.Option(1.3, "--fold-threshold1"),
     split_length: int = typer.Option(200, "--split-length"),
@@ -27,13 +27,17 @@ def detect(
     fc_thresh_wid: float = typer.Option(1.1, "--fc-thresh-wid"),
     fc_thresh_len: float = typer.Option(3.0, "--fc-thresh-len"),
     add_dip: str = typer.Option("N", "--add-dip"),
-    input_chrom: str = typer.Option(None, "--chrom", help="When input is .cool, region like 'chr1' "),
+    chrom: str = typer.Option(..., "--chrom", help="Chromosome name, e.g. 'chr1'"),
     cool_norm: str = typer.Option("weight", "--cool-norm", help="'weight' | 'None' | a bins() column in the .cool"),
 ):
-    """Run stripe detection on a contact matrix."""
+    """
+    Run stripe detection on a contact matrix.
+    - If --input is a .cool file: we will fetch the submatrix of the given --chrom.
+    - Results are written under OUTPUT/CHROM/...
+    """
     out_path = run_pipeline(
         input_matrix=input,
-        output_dir=output,
+        output_dir=output,         
         penalty=penalty,
         fold_threshold1=fold_threshold1,
         split_length=split_length,
@@ -45,10 +49,11 @@ def detect(
         fc_thresh_wid=fc_thresh_wid,
         fc_thresh_len=fc_thresh_len,
         add_dip=add_dip,
-        input_chrom=input_chrom,
+        chrom=chrom,           
         cool_norm=cool_norm,
     )
     typer.echo(f"[OK] Finished. Results written to: {out_path}")
+
 
 @app.command("postprocess")
 def postprocess(

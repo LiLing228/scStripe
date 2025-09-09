@@ -609,26 +609,25 @@ def load_matrix(path: Path) -> np.ndarray:
     # Guard against NaN/Inf
     return np.nan_to_num(mat, nan=0.0, posinf=0.0, neginf=0.0)
 
-
 def load_matrix_any(path: Path,
-                    input_chrom: Optional[str] = None,
+                    chrom: Optional[str] = None,
                     cool_norm: str = "weight") -> np.ndarray:
     """
-    Load a matrix from either a text/mat file or a .cool file.
-
-    - If path ends with .cool: require `input_chrom` (e.g. 'chr1' or 'chr1:10_000_000-20_000_000'),
-      and fetch the balanced/unbalanced submatrix via Cooler.
-    - Otherwise: treat as plain text matrix and np.loadtxt.
+    Load matrix from a text file or a .cool file.
     """
     if path.suffix.lower() == ".cool":
-        if cooler is None:
-            raise ImportError("cooler is not installed but a .cool file was provided.")
-        if not input_chrom:
-            raise ValueError("When using a .cool file, `input_chrom` must be provided.")
+        if not chrom or (":" in chrom):
+            raise ValueError("`chrom` is required.")
 
         c = cooler.Cooler(str(path))
 
-        # balance flag: 'weight' -> True; 'None' -> False; or a valid bins()
+        # validate chromosome exists
+        valid_chroms = set(map(str, c.chromnames))
+        if chrom not in valid_chroms:
+            raise ValueError(f"Chromosome '{chrom}' not found in {path}. "
+                             f"Available: {', '.join(c.chromnames)}")
+
+        # balance flag
         if cool_norm == "None":
             balance_arg = False
         elif cool_norm == "weight":
@@ -642,11 +641,14 @@ def load_matrix_any(path: Path,
                     f"Available: {list(c.bins().columns)}"
                 )
 
-        mat = c.matrix(balance=balance_arg).fetch(input_chrom)
-        mat = np.nan_to_num(mat, nan=0.0, posinf=0.0, neginf=0.0)
-        return mat
+        mat = c.matrix(balance=balance_arg).fetch(chrom)
+        return np.nan_to_num(mat, nan=0.0, posinf=0.0, neginf=0.0)
+
     else:
-        return load_matrix(path)
+        if not chrom or (":" in chrom):
+            raise ValueError("`chrom` is required.")
+        mat = load_matrix(path)
+        return mat
     
 
 def call_stripes(
@@ -774,6 +776,8 @@ def write_outputs(
     df.to_csv(result_file, index=False)
     return result_file
 
+def _sanitize_chrom_dir(chrom: str) -> str:
+    return chrom.replace("/", "_").strip()
 
 def run_pipeline(
     input_matrix: Path,
@@ -790,12 +794,13 @@ def run_pipeline(
     fc_thresh_wid: float = 1.1,
     fc_thresh_len: float = 3.0,
     add_dip: str = "N",
-    input_chrom: Optional[str] = None, 
-    cool_norm: str = "weight",           # 'weight' | 'None' | bins()
+    chrom: str,                  
+    cool_norm: str = "weight",
 ) -> Path:
-    """
-    High-level function: load → call stripes → p-value correction → filters → write outputs.
-    """
+    """High-level function: load → call stripes → p-value correction → filters → write outputs."""
+    if not isinstance(chrom, str) or chrom.strip() == "" or (":" in chrom):
+        raise ValueError("`chrom` is required and must be a chromosome name like 'chr1' (no region).")
+
     if max_width <= 0 or min_length <= 0:
         raise ValueError("max_width and min_length must be positive.")
     if p_thresh_wid <= 0 or p_thresh_len <= 0:
@@ -803,8 +808,10 @@ def run_pipeline(
     if fc_thresh_wid <= 0 or fc_thresh_len <= 0:
         raise ValueError("fold-change thresholds must be > 0.")
 
-    mat = load_matrix_any(input_matrix, input_chrom=input_chrom, cool_norm=cool_norm)
+    # load matrix (cool/text)
+    mat = load_matrix_any(input_matrix, chrom=chrom, cool_norm=cool_norm)
 
+    # detect stripes
     stripes, bkps = call_stripes(
         mat,
         penalty=penalty,
@@ -815,8 +822,8 @@ def run_pipeline(
         min_length=min_length,
     )
 
+    # adjust p-values + filters
     stripes = correct_pvalues(stripes, p_thresh_wid, p_thresh_len)
-
     enable_dip = (add_dip.upper() == "Y")
     apply_filters(
         stripes,
@@ -826,8 +833,10 @@ def run_pipeline(
         dip_cut=0.05,
     )
 
+    # write under chrom subfolder
+    chrom_outdir = output_dir / _sanitize_chrom_dir(chrom)
     return write_outputs(
-        output_dir, bkps, stripes,
+        chrom_outdir, bkps, stripes,
         penalty=penalty, fold_threshold1=fold_threshold1,
         split_length=split_length, step_size=step_size,
         max_width=max_width, min_length=min_length,
