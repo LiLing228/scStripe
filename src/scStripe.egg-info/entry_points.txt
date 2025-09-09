@@ -1,0 +1,2 @@
+[console_scripts]
+scstripe = scStripe.cli:main
