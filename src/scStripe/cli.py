@@ -28,7 +28,7 @@ def detect(
     fc_thresh_len: float = typer.Option(3.0, "--fc-thresh-len"),
     add_dip: str = typer.Option("N", "--add-dip"),
     chrom: str = typer.Option(..., "--chrom", help="Chromosome name, e.g. 'chr1'"),
-    cool_norm: str = typer.Option("weight", "--cool-norm", help="'weight' | 'None' | a bins() column in the .cool"),
+    cool_norm: str = typer.Option("weight", "--norm", help="'weight' | 'None' | a bins() column in the .cool"),
 ):
     """
     Run stripe detection on a contact matrix.
