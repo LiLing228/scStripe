@@ -9,8 +9,6 @@ import math
 def _process_cell(
     cellname: str,
     df_stripe: pd.DataFrame,
-    q1 = float,
-    q2 = float,
     celltype: str,
     pairs_dir: Path,
     chr1_col: int,
@@ -18,6 +16,8 @@ def _process_cell(
     chr2_col: int,
     pos2_col: int,
     log_path: Path,
+    q1 = float,
+    q2 = float
 ) -> pd.Series:
 
     if not (0.0 <= q1 < q2 <= 1.0):
@@ -177,17 +177,17 @@ def run_stripe_scores(
     # parallel
     results = Parallel(n_jobs=n_jobs)(
         delayed(_process_cell)(
-            cellname,
-            df_stripe.copy(),
-            q1,
-            q2,
-            celltype,
-            pairs_dir,
-            chr1_col,
-            pos1_col,
-            chr2_col,
-            pos2_col,
-            log_path,
+            cellname=cellname,
+            df_stripe=df_stripe.copy(),
+            celltype=celltype,
+            pairs_dir=pairs_dir,
+            chr1_col=chr1_col,
+            pos1_col=pos1_col,
+            chr2_col=chr2_col,
+            pos2_col=pos2_col,
+            log_path=log_path,
+            q1=q1,
+            q2=q2,
         )
         for cellname in cellnames
     )
