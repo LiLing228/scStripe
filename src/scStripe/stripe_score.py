@@ -4,10 +4,13 @@ from pathlib import Path
 from typing import List
 import pandas as pd
 from joblib import Parallel, delayed
+import math
 
 def _process_cell(
     cellname: str,
     df_stripe: pd.DataFrame,
+    q1 = float,
+    q2 = float,
     celltype: str,
     pairs_dir: Path,
     chr1_col: int,
@@ -16,6 +19,10 @@ def _process_cell(
     pos2_col: int,
     log_path: Path,
 ) -> pd.Series:
+
+    if not (0.0 <= q1 < q2 <= 1.0):
+        raise ValueError(f"Invalid q1,q2: {q1},{q2} (require 0 <= q1 < q2 <= 1)")
+
     with open(log_path, "a") as logf:
         logf.write(f"Processing {cellname}\n")
 
@@ -64,46 +71,62 @@ def _process_cell(
             row_start, row_end = p1, p2
             col_start, col_end = p3, p4
             wid_L = row_end - row_start
+            len_L = col_end - col_start
 
-            main_mask = (
-                (df_pairs["chr1"] == chr1)
-                & (df_pairs["pos1"].between(row_start, row_end))
-                & (df_pairs["chr2"] == chr2)
-                & (df_pairs["pos2"].between(col_start, col_end))
-            )
-            flank_mask = (
-                (df_pairs["chr1"] == chr1)
-                & (
-                    df_pairs["pos1"].between(row_start - wid_L, row_start - 1)
-                    | df_pairs["pos1"].between(row_end + 1, row_end + wid_L)
+            sub_start = col_start + int(math.floor(len_L * (1.0 - q2)))
+            sub_end = col_end - int(math.floor(len_L * q1))
+
+            if sub_start > sub_end:
+                main_mask = pd.Series(False, index=df_pairs.index)
+                flank_mask = pd.Series(False, index=df_pairs.index)
+            else:
+                main_mask = (
+                    (df_pairs["chr1"] == chr1)
+                    & (df_pairs["pos1"].between(row_start, row_end))
+                    & (df_pairs["chr2"] == chr2)
+                    & (df_pairs["pos2"].between(sub_start, sub_end))
                 )
-                & (df_pairs["chr2"] == chr2)
-                & (df_pairs["pos2"].between(col_start, col_end))
-            )
+                flank_mask = (
+                    (df_pairs["chr1"] == chr1)
+                    & (
+                        df_pairs["pos1"].between(row_start - wid_L, row_start - 1)
+                        | df_pairs["pos1"].between(row_end + 1, row_end + wid_L)
+                    )
+                    & (df_pairs["chr2"] == chr2)
+                    & (df_pairs["pos2"].between(sub_start, sub_end))
+                )
 
         # vertical stripe (p2 == p4)
         elif p2 == p4:
             col_start, col_end = p1, p2
             row_start, row_end = p3, p4
             wid_L = col_end - col_start
+            len_L = row_end - row_start
 
-            main_mask = (
-                (df_pairs["chr1"] == chr1)
-                & (df_pairs["pos1"].between(row_start, row_end))
-                & (df_pairs["chr2"] == chr2)
-                & (df_pairs["pos2"].between(col_start, col_end))
-            )
-            flank_mask = (
-                (df_pairs["chr1"] == chr1)
-                & (df_pairs["pos1"].between(row_start, row_end))
-                & (df_pairs["chr2"] == chr2)
-                & (
-                    df_pairs["pos2"].between(col_start - wid_L, col_start - 1)
-                    | df_pairs["pos2"].between(col_end + 1, col_end + wid_L)
+            sub_start = row_start + int(math.floor(len_L * q1))
+            sub_end = row_end - int(math.floor(len_L * (1.0 - q2)))
+
+            if sub_start > sub_end:
+                main_mask = pd.Series(False, index=df_pairs.index)
+                flank_mask = pd.Series(False, index=df_pairs.index)
+            else:
+                main_mask = (
+                    (df_pairs["chr1"] == chr1)
+                    & (df_pairs["pos1"].between(sub_start, sub_end))
+                    & (df_pairs["chr2"] == chr2)
+                    & (df_pairs["pos2"].between(col_start, col_end))
                 )
-            )
+                flank_mask = (
+                    (df_pairs["chr1"] == chr1)
+                    & (df_pairs["pos1"].between(sub_start, sub_end))
+                    & (df_pairs["chr2"] == chr2)
+                    & (
+                        df_pairs["pos2"].between(col_start - wid_L, col_start - 1)
+                        | df_pairs["pos2"].between(col_end + 1, col_end + wid_L)
+                    )
+                )
         else:
-            ratios.append(0)
+            ratios.append(0.0)
             continue
 
         main_count = main_mask.sum()
@@ -125,11 +148,16 @@ def run_stripe_scores(
     pos1_col: int,
     chr2_col: int,
     pos2_col: int,
+    q1: float = 0.0,
+    q2: float = 0.5,
     n_jobs: int = 40,
 ) -> Path:
     """Compute stripe scores per cell and save a TSV; returns output path."""
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"Output dir: {output_dir}")
+
+    if not (0.0 <= q1 < q2 <= 1.0):
+        raise ValueError(f"Invalid q1,q2: {q1},{q2} (require 0 <= q1 < q2 <= 1)")
 
     # metadata
     meta_df = pd.read_csv(meta_file, sep="\t")
@@ -149,11 +177,21 @@ def run_stripe_scores(
     # parallel
     results = Parallel(n_jobs=n_jobs)(
         delayed(_process_cell)(
-            cellname, df_stripe.copy(), celltype,
-            pairs_dir, chr1_col, pos1_col, chr2_col, pos2_col, log_path
+            cellname,
+            df_stripe.copy(),
+            q1,
+            q2,
+            celltype,
+            pairs_dir,
+            chr1_col,
+            pos1_col,
+            chr2_col,
+            pos2_col,
+            log_path,
         )
         for cellname in cellnames
     )
+
 
     # merge back
     for series in results:
