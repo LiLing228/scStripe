@@ -57,17 +57,25 @@ def compute_stripiness_table(
     mask: str = "0",
     bfilter: int = 3,
 ) -> pd.DataFrame:
+    """
+    Core function: given cooler and candidate stripes table, return a new table with stripiness/p-values.
+    """
     np.seterr(divide="ignore", invalid="ignore")
 
-    # ---- open cooler & decide normalization ----
+    # parse chromosomes
+    chrom_list = chroms if isinstance(chroms, list) else chroms.split(",")
+
+    # open cooler
     lib = cooler.Cooler(str(cool_path))
     possible_norm = lib.bins().columns
+
+    # normalization
     if norm == "None":
         balance_flag: bool | str = False
     elif norm == "weight":
         balance_flag = True
     elif norm in possible_norm:
-        balance_flag = norm
+        balance_flag = norm  # cooler accepts bins() column name
     else:
         print("Possible normalization methods include:")
         print("  - None")
@@ -77,53 +85,39 @@ def compute_stripiness_table(
         balance_flag = False
     print(f"[INFO] Using balance={balance_flag!r}, binsize={lib.binsize}")
 
-    # ---- cooler chroms as the source of truth (order-preserving) ----
+    # filter chromosomes
     all_chromnames = filter_default_chroms(list(lib.chromnames))
     if not all_chromnames:
-        raise RuntimeError("All chromosomes are filtered out.")
+        raise RuntimeError("All chromosomes are shorter than 50kb or filtered out.")
+    # align sizes
     all_chromsizes = lib.chromsizes.reindex(all_chromnames)
 
-    # ---- desired chrom list (from arg or from stripes table) ----
-    if isinstance(chroms, list):
-        desired = [c.strip() for c in chroms if c and isinstance(c, str)]
-    elif isinstance(chroms, str):
-        if chroms.strip().lower() == "all":
-            desired = all_chromnames[:]  # all, keep order
-        else:
-            desired = [c.strip() for c in chroms.split(",") if c.strip()]
+    # user subset
+    warnflag = False
+    if chrom_list and chrom_list[0] != "all":
+        idx_map = {c: i for i, c in enumerate(all_chromnames)}
+        missing: List[str] = []
+        ordered: List[str] = []
+        for c in chrom_list:
+            if c in idx_map:
+                ordered.append(c)
+            else:
+                missing.append(c)
+        if missing:
+            warnings.warn("Missing chromosomes in .cool: " + ", ".join(missing))
+            warnings.warn("Available: " + ", ".join(all_chromnames))
+        chromnames = ordered if ordered else all_chromnames
     else:
-        desired = all_chromnames[:]
-
-    desired_set = set(desired)
-    chromnames = [c for c in all_chromnames if c in desired_set]
-    missing = [c for c in desired if c not in all_chromnames]
-    if missing:
-        warnings.warn("Missing chromosomes in .cool: " + ", ".join(missing))
-        warnings.warn("Available: " + ", ".join(all_chromnames))
-
-    stripe_file = stripe_file[
-        stripe_file["chr"].astype(str).isin(chromnames)
-        & stripe_file["chr2"].astype(str).isin(chromnames)
-    ].copy()
-    if stripe_file.empty:
-        raise RuntimeError("After aligning chrom sets, no stripes remain to score.")
-
+        chromnames = all_chromnames
     chromsizes = all_chromsizes.loc[chromnames]
 
-    # ---- build accessor & getStripe object ----
+    # matrix accessor
     mat_accessor = lib.matrix(balance=balance_flag)
     resol = lib.binsize
-    obj = getStripe(
-        mat_accessor,
-        resol,
-        all_chromnames,       # full list (for internal indexing)
-        chromnames,           # working list (subset, ordered)
-        lib.chromsizes,
-        chromsizes,
-        numcores,
-        bfilter
-    )
 
+    # init getStripe object
+    # obj = getStripe(mat_accessor, resol, all_chromnames, chromnames, lib.chromsizes, chromsizes, numcores, bfilter)
+    obj = getStripe(mat_accessor, resol, all_chromnames, chromnames, all_chromsizes, chromsizes, numcores, bfilter)
     print("1. Expected value calculation ...")
     ev = obj.mpmean()
 
@@ -139,6 +133,7 @@ def compute_stripiness_table(
     assert isinstance(res, (list, tuple)) and len(res) > 0, "Unexpected return from scoringstripes"
     scores = res[0]
     cand_pval.insert(cand_pval.shape[1], "Stripiness", scores, True)
+
     cand_pval = cand_pval.sort_values(by=["Stripiness"], ascending=False)
     return cand_pval
 
@@ -149,17 +144,22 @@ def run(
     stripe_file: Path,
     stripes_add_stripiness_pvalue_path: Path,
     norm: str | bool = "None",
-    chrom: str = "form_file", 
+    chrom: str = "all",
     numcores: int = 10,
     mask: str = "0",
     bfilter: int = 3
 ) -> Path:
+    """
+    Returns
+    -------
+    stripes_add_stripiness_pvalue_path
+    """
     stripes_df = read_tsv(stripe_file, REQUIRED_COLS)
 
-    if chrom.strip().lower() == "from_file":
-        chroms_for_calc = sorted(set(stripes_df["chr"].astype(str)) | set(stripes_df["chr2"].astype(str)))
-    else:
-        chroms_for_calc = chrom  # "all"
+    # chrom list from file if requested
+    chroms_for_calc = (",".join(unique_sorted_chroms(stripes_df, "chr"))
+                       if chrom.strip().lower() == "from_file"
+                       else chrom)
 
     out_df = compute_stripiness_table(
         cool_path=cool,
@@ -174,132 +174,3 @@ def run(
     stripes_add_stripiness_pvalue_path.parent.mkdir(parents=True, exist_ok=True)
     out_df.to_csv(stripes_add_stripiness_pvalue_path, sep="\t", index=False)
     return stripes_add_stripiness_pvalue_path
-
-
-# def compute_stripiness_table(
-#     cool_path: Path,
-#     stripe_file: pd.DataFrame,
-#     *,
-#     norm: str | bool = "None",
-#     chroms: List[str] | str = "all",
-#     numcores: int = 10,
-#     mask: str = "0",
-#     bfilter: int = 3,
-# ) -> pd.DataFrame:
-#     """
-#     Core function: given cooler and candidate stripes table, return a new table with stripiness/p-values.
-#     """
-#     np.seterr(divide="ignore", invalid="ignore")
-
-#     # parse chromosomes
-#     chrom_list = chroms if isinstance(chroms, list) else chroms.split(",")
-
-#     # open cooler
-#     lib = cooler.Cooler(str(cool_path))
-#     possible_norm = lib.bins().columns
-
-#     # normalization
-#     if norm == "None":
-#         balance_flag: bool | str = False
-#     elif norm == "weight":
-#         balance_flag = True
-#     elif norm in possible_norm:
-#         balance_flag = norm  # cooler accepts bins() column name
-#     else:
-#         print("Possible normalization methods include:")
-#         print("  - None")
-#         for col in possible_norm[3:]:
-#             print(f"  - {col}")
-#         print("Invalid normalization; falling back to 'None'.")
-#         balance_flag = False
-#     print(f"[INFO] Using balance={balance_flag!r}, binsize={lib.binsize}")
-
-#     # filter chromosomes
-#     all_chromnames = filter_default_chroms(list(lib.chromnames))
-#     if not all_chromnames:
-#         raise RuntimeError("All chromosomes are shorter than 50kb or filtered out.")
-#     # align sizes
-#     all_chromsizes = lib.chromsizes.reindex(all_chromnames)
-
-#     # user subset
-#     warnflag = False
-#     if chrom_list and chrom_list[0] != "all":
-#         idx_map = {c: i for i, c in enumerate(all_chromnames)}
-#         missing: List[str] = []
-#         ordered: List[str] = []
-#         for c in chrom_list:
-#             if c in idx_map:
-#                 ordered.append(c)
-#             else:
-#                 missing.append(c)
-#         if missing:
-#             warnings.warn("Missing chromosomes in .cool: " + ", ".join(missing))
-#             warnings.warn("Available: " + ", ".join(all_chromnames))
-#         chromnames = ordered if ordered else all_chromnames
-#     else:
-#         chromnames = all_chromnames
-#     chromsizes = all_chromsizes.loc[chromnames]
-
-#     # matrix accessor
-#     mat_accessor = lib.matrix(balance=balance_flag)
-#     resol = lib.binsize
-
-#     # init getStripe object
-#     obj = getStripe(mat_accessor, resol, all_chromnames, chromnames, lib.chromsizes, chromsizes, numcores, bfilter)
-
-#     print("1. Expected value calculation ...")
-#     ev = obj.mpmean()
-
-#     print("2. Background distribution estimation ...")
-#     bgleft_up, bgright_up, bgleft_down, bgright_down = obj.nulldist()
-
-#     print("3. Evaluating stripes ...")
-#     cand_pval = obj.extract(stripe_file, bgleft_up, bgright_up, bgleft_down, bgright_down)
-
-#     print("4. Stripiness calculation ...")
-#     print("Chromosomes after filtering:", obj.chromnames)
-#     res = obj.scoringstripes(cand_pval, ev, mask)
-#     assert isinstance(res, (list, tuple)) and len(res) > 0, "Unexpected return from scoringstripes"
-#     scores = res[0]
-#     cand_pval.insert(cand_pval.shape[1], "Stripiness", scores, True)
-
-#     cand_pval = cand_pval.sort_values(by=["Stripiness"], ascending=False)
-#     return cand_pval
-
-
-# def run(
-#     *,
-#     cool: Path,
-#     stripe_file: Path,
-#     stripes_add_stripiness_pvalue_path: Path,
-#     norm: str | bool = "None",
-#     chrom: str = "all",
-#     numcores: int = 10,
-#     mask: str = "0",
-#     bfilter: int = 3
-# ) -> Path:
-#     """
-#     Returns
-#     -------
-#     stripes_add_stripiness_pvalue_path
-#     """
-#     stripes_df = read_tsv(stripe_file, REQUIRED_COLS)
-
-#     # chrom list from file if requested
-#     chroms_for_calc = (",".join(unique_sorted_chroms(stripes_df, "chr"))
-#                        if chrom.strip().lower() == "from_file"
-#                        else chrom)
-
-#     out_df = compute_stripiness_table(
-#         cool_path=cool,
-#         stripe_file=stripes_df,
-#         norm=norm,
-#         chroms=chroms_for_calc,
-#         numcores=numcores,
-#         mask=mask,
-#         bfilter=bfilter,
-#     )
-
-#     stripes_add_stripiness_pvalue_path.parent.mkdir(parents=True, exist_ok=True)
-#     out_df.to_csv(stripes_add_stripiness_pvalue_path, sep="\t", index=False)
-#     return stripes_add_stripiness_pvalue_path
