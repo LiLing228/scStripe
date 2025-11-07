@@ -114,7 +114,7 @@ def add_stripiness_cmd(
     stripe_file: Path = typer.Option(..., "--stripe-file", help="Path to stripes TSV"),
     output: Path = typer.Option(..., "--output", help="Path to output TSV (stripiness + p-values)"),
     norm: str = typer.Option("None", "--cool-norm", help="None | weight | <bins column in .cool>"),
-    chrom: str = typer.Option("all", "--chrom", help="'all', comma list, or 'from_file'"),
+    chrom: str = typer.Option("from_file", "--chrom", help="'all', comma list, or 'from_file'"),
     numcores: int = typer.Option(10, "--numcores", help="Parallel jobs"),
     mask: str = typer.Option("0", "--mask", help="Mask region like 'chr1:100000-200000' or '0'"),
     bfilter: int = typer.Option(3, "--bfilter", help="Background filter level"),
