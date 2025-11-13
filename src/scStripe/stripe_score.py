@@ -170,10 +170,17 @@ def run_stripe_scores(
     print(f"Loaded stripe file: {stripe_file}, total {len(df_stripe)} entries")
 
     # cells for this celltype
-    cellnames = meta_df.loc[meta_df["Celltype"] == celltype, "Cellname"].tolist()
-    print(f"Found {len(cellnames)} cells in {celltype}")
+    if celltype.upper() == "ALL":
+        cellnames = meta_df["Cellname"].tolist()
+        out_tag = "ALLCELLS"
+        print(f"Found {len(cellnames)} cells (ALL from metadata)")
+    else:
+        cellnames = meta_df.loc[meta_df["Celltype"] == celltype, "Cellname"].tolist()
+        out_tag = celltype
+        print(f"Found {len(cellnames)} cells in {celltype}")
 
-    log_path = output_dir / f"log_{celltype}.txt"
+    log_path = output_dir / f"log_{out_tag}.txt"
+
     # parallel
     results = Parallel(n_jobs=n_jobs)(
         delayed(_process_cell)(
