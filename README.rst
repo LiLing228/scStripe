@@ -177,24 +177,24 @@ Options:
    Merge results from chromosome-level detection, remove redundant stripes, and produce unified outputs. 
 
 Options:
-  --results-dir PATH     Root directory containing per-chromosome results
-                         (subdirectories such as chr1/, chr2/, ...).
-                         [required]
+  --results-dir PATH      Root directory containing per-chromosome results
+                          (subdirectories such as chr1/, chr2/, ...).
+                          [required]
 
-  --split-length INTEGER Split size (in bins) used during detection. Must
-                         match the value used in `scstripe detect`.
-                         [default: 200]
+  --split-length INTEGER  Split size (in bins) used during detection. Must
+                          match the value used in `scstripe detect`.
+                          [default: 200]
 
-  --resolution INTEGER   Bin size (in base pairs) used in detection. Must
-                         match the resolution of the input Hi-C matrix
-                         (e.g., 10000 for 10 kb).  [default: 10000]
+  --resolution INTEGER    Bin size (in base pairs) used in detection. Must
+                          match the resolution of the input Hi-C matrix
+                          (e.g., 10000 for 10 kb).  [default: 10000]
 
-  --step-size INTEGER    Step size (in bins) between adjacent windows used
-                         during detection. Must match the value used in
-                         `scstripe detect`.  [default: 50]
+  --step-size INTEGER     Step size (in bins) between adjacent windows used
+                          during detection. Must match the value used in
+                          `scstripe detect`.  [default: 50]
 
-  --n-jobs INTEGER       Number of parallel jobs used for redundancy removal
-                         and stripe merging.  [default: 4]
+  --n-jobs INTEGER        Number of parallel jobs used for redundancy removal
+                          and stripe merging.  [default: 4]
 
 
 **score-cells**
