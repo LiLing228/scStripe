@@ -39,7 +39,8 @@ Clone the repository and install in editable mode:
 Example run
 #########################
 Let's check if scstripe is working or not with a simple example. This example .cool file is Blood_10kb of only chr19 of mouse (`Liu et al., Science, 2025 <https://www.science.org/doi/10.1126/science.adg3797>`_).
-
+::
+   
    cd <Test_Directory> # Move to your test directory
    wget https://www.dropbox.com/scl/fi/5uxbr6lu4sjt0x0n4hfcu/Blood_10kb.cool?rlkey=2fl6dyzhcby0rbr3gt13gmtpb&st=ebjkayev&dl=1 -O test.cool --no-check-certificate
    scstripe detect --input test.cool --chrom chr19 --norm weight --output <Test_Directory> --split-length 200 --step-size 50 --max-width 8 --min-length 20
