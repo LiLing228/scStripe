@@ -40,7 +40,7 @@ Example run
 #########################
 Let's check if scstripe is working or not with a simple example. This example .cool file is Blood_10kb of only chr19 of mouse (`Liu et al., Science, 2025 <https://www.science.org/doi/10.1126/science.adg3797>`_).
 ::
-   
+
    cd <Test_Directory> # Move to your test directory
    wget https://www.dropbox.com/scl/fi/5uxbr6lu4sjt0x0n4hfcu/Blood_10kb.cool?rlkey=2fl6dyzhcby0rbr3gt13gmtpb&st=ebjkayev&dl=1 -O test.cool --no-check-certificate
    scstripe detect --input test.cool --chrom chr19 --norm weight --output <Test_Directory> --split-length 200 --step-size 50 --max-width 8 --min-length 20
@@ -176,7 +176,8 @@ Options:
 
 
 **postprocess**
-:Merge results from chromosome-level detection, remove redundant stripes, and produce unified outputs.  
+:Merge results from chromosome-level detection, remove redundant stripes, and produce unified outputs. 
+
 Options:
   --results-dir PATH     Root directory containing per-chromosome results
                          (subdirectories such as chr1/, chr2/, ...).
@@ -200,6 +201,7 @@ Options:
 
 **score-cells**
 :Compute stripe scores for each cell from per-cell pairs files.  
+
 Options:
   --celltype TEXT        Cell type label for which cell-wise stripe scores
                          will be computed.  [required]
@@ -244,6 +246,7 @@ Options:
 :Evaluate stripiness and p-values (two metrics originally proposed in Stripenn).  
 These metrics can also be computed using the `stripenn score` command  
 (`Yoon et al., Nature Communications, 2022 <https://www.nature.com/articles/s41467-022-29258-9>`_).
+
 Options:
   --cool PATH            Path to input .cool file.  [required]
 
