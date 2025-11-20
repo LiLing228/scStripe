@@ -48,6 +48,7 @@ Let's check if scstripe is working or not with a simple example. This example .c
 
 **Output1**
 An example of the post-processed stripe summary table is shown below:
+
 .. csv-table:: processed_results.tsv
    :header: "chr","pos1","pos2","chr2","pos3","pos4","length","width","split_mat_id"
 
@@ -95,6 +96,7 @@ Each line represents the coordinates of a stripe.
     
 **Output2**
 An example of the single-cell stripe score summary table is shown below:
+
 .. csv-table:: stripe_score_Blood.tsv
    :header: "chr","pos1","pos2","chr2","pos3","pos4","length","width","split_mat_id","GasaE751008","GasaE751023","GasaE751026","GasaE751027","GasaE751028","GasaE751029"
 
