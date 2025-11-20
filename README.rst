@@ -19,6 +19,8 @@ scStripe is an imputation-free two-stage statistical framework for stripe detect
 In stage~1, pseudo-bulk contact maps are analyzed to identify candidate stripe endpoints using a Random-Matrix-Theory–guided spectral selection, followed by endpoint assembly and statistical validation of candidate stripes. 
 In stage~2, these validated pseudo-bulk stripes serve as a reference to compute per-cell stripe scores directly from raw, unbalanced single-cell contact matrices, thereby quantifying the presence and strength of each stripe across individual cells.
 
+.. image:: https://github.com/LiLing228/scStripe/blob/main/image/readme1.png
+
 Requirement
 ############
 **Python 3.8 or higher version**
@@ -62,7 +64,7 @@ An example of the post-processed stripe summary table is shown below:
 
 Each line represents the coordinates of a stripe.
 
-.. image:: https://github.com/LiLing228/scStripe/blob/main/image/github_x1.pdf
+.. image:: https://github.com/LiLing228/scStripe/blob/main/image/readme2.png
 
 * chr: chromosome
 * pos1: x1 position of stripe
