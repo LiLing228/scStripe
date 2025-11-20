@@ -12,7 +12,8 @@ Contents
 * Example run
 * Usage
 
-## Introduction
+Introduction
+############
 
 scStripe is an imputation-free two-stage statistical framework for stripe detection and quantification from single-cell Hi-C data. 
 In stage~1, pseudo-bulk contact maps are analyzed to identify candidate stripe endpoints using a Random-Matrix-Theory–guided spectral selection, followed by endpoint assembly and statistical validation of candidate stripes. 
@@ -35,7 +36,7 @@ Clone the repository and install in editable mode:
    pip install -e .
 
 
-## Example run
+Example run
 #########################
 Let's check if scstripe is working or not with a simple example. This example .cool file is Blood_10kb of only chr19 of mouse (`Liu et al., Science, 2025 <(https://www.science.org/doi/10.1126/science.adg3797)>`_).
 ::
@@ -112,7 +113,8 @@ Each line represents the coordinates of a stripe.
 
 
 
-## Usage
+Usage
+############
 
 scStripe has four functions.
 
