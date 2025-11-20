@@ -124,7 +124,7 @@ scStripe has four functions.
 * add-stripiness
 
 **detect**
-:Matrix segmentation and changepoint-based detection; supports both `.txt` contact matrices and `.cool` files.  
+   Matrix segmentation and changepoint-based detection; supports both `.txt` contact matrices and `.cool` files.  
 
 Options:
   --input PATH              Path to input contact matrix (.txt or .cool).
@@ -173,10 +173,8 @@ Options:
                             stripes ('Y' or 'N').  [default: N]
 
 
-
-
 **postprocess**
-:Merge results from chromosome-level detection, remove redundant stripes, and produce unified outputs. 
+   Merge results from chromosome-level detection, remove redundant stripes, and produce unified outputs. 
 
 Options:
   --results-dir PATH     Root directory containing per-chromosome results
@@ -200,7 +198,7 @@ Options:
 
 
 **score-cells**
-:Compute stripe scores for each cell from per-cell pairs files.  
+   Compute stripe scores for each cell from per-cell pairs files.  
 
 Options:
   --celltype TEXT        Cell type label for which cell-wise stripe scores
@@ -243,9 +241,7 @@ Options:
 
 
 **add-stripiness**
-:Evaluate stripiness and p-values (two metrics originally proposed in Stripenn).  
-These metrics can also be computed using the `stripenn score` command  
-(`Yoon et al., Nature Communications, 2022 <https://www.nature.com/articles/s41467-022-29258-9>`_).
+   Evaluate stripiness and p-values (two metrics originally proposed in Stripenn). These metrics can also be computed using the `stripenn score` command (`Yoon et al., Nature Communications, 2022 <https://www.nature.com/articles/s41467-022-29258-9>`_).
 
 Options:
   --cool PATH            Path to input .cool file.  [required]
