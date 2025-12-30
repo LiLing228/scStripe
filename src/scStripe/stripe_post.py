@@ -18,8 +18,8 @@ def _clean_group(
     pos2: np.ndarray,
     pos3: np.ndarray,
     pos4: np.ndarray,
-    height: np.ndarray,              # ← 接受 height
-    width: np.ndarray,               # ← 接受 width
+    height: np.ndarray,             
+    width: np.ndarray,             
     split_length: int,
     step_size: int,
 ) -> List[int]:
@@ -54,7 +54,6 @@ def _clean_group(
             if s_x > 0.2 and s_y > 0.2:
                 ratio_i = height[ii_local] / max(width[ii_local], 1)
                 ratio_j = height[jj_local] / max(width[jj_local], 1)
-                # 记录“全局行号”
                 to_remove.append(c_idx[ii_local] if ratio_i <= ratio_j else c_idx[jj_local])
 
     return list(set(to_remove))
@@ -113,7 +112,7 @@ def parse_stripe(file_path: Path, chr_num: str, resolution: int) -> Optional[pd.
     if df.empty:
         return None
 
-    required = {"pass_t", "pass_fc", "pass_dip", "stripe_width", "stripe_len_anchor_and_length", "direction"}
+    required = {"pass_t", "pass_fc", "stripe_width", "stripe_len_anchor_and_length", "direction"}
     if not required.issubset(df.columns):
         return None
 
@@ -123,7 +122,7 @@ def parse_stripe(file_path: Path, chr_num: str, resolution: int) -> Optional[pd.
         return None
 
     df["pass_fc"] = pd.to_numeric(df["pass_fc"], errors="coerce")
-    df = df[(df["pass_fc"] == 1) & (df["pass_dip"] == 1)]
+    df = df[(df["pass_fc"] == 1)]
     if df.empty:
         return None
 
@@ -162,10 +161,6 @@ def parse_stripe(file_path: Path, chr_num: str, resolution: int) -> Optional[pd.
 
 
 def write_bedpe_and_bed(df: pd.DataFrame, out_dir: Path, stem: str) -> Tuple[Path, Path]:
-    """
-    Export BEDPE (chr,pos1,pos2,chr2,pos3,pos4) and BED.
-    BED is always based on (chr2,pos3,pos4).
-    """
     out_dir.mkdir(parents=True, exist_ok=True)
     bedpe_path = out_dir / f"{stem}.bedpe"
     bed_path = out_dir / f"{stem}.bed"
@@ -187,11 +182,7 @@ def process_all(
     step_size: int,
     n_jobs: int = 4,
 ) -> Tuple[Path, Path]:
-    """
-    Traverse chromosome folders under results_dir, parse all *unidentified_stripe.csv,
-    concatenate, then remove redundant stripes.
-    Returns (raw_tsv, final_tsv).
-    """
+
     results_dir = Path(results_dir)
     all_dfs: List[pd.DataFrame] = []
 
@@ -215,7 +206,7 @@ def process_all(
     final_tsv = results_dir / "processed_results.tsv"
     final_df.to_csv(final_tsv, sep="\t", index=False)
 
-    # export BEDPE & BED here
+    # export BEDPE & BED
     write_bedpe_and_bed(final_df, results_dir, stem="processed_results")
 
     return raw_tsv, final_tsv

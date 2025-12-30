@@ -200,7 +200,6 @@ def run_stripe_scores(
     )
 
 
-    # merge back
     for series in results:
         df_stripe[series.name] = series
 

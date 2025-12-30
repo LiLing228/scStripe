@@ -11,7 +11,6 @@ import ruptures as rpt
 import math
 import cooler
 from statsmodels.stats.multitest import multipletests
-import diptest
 
 
 def make_symmetric(matrix):  
@@ -123,8 +122,6 @@ def stripe_t_test_len_slant_within_out(mat_observed_big,dry_stripe_width_loci,dr
     within_dry_stripe_len_mean = np.where(within_dry_stripe_len_mean <= 0, 1e-10, within_dry_stripe_len_mean)
     out_dry_stripe_len_mean = np.where(out_dry_stripe_len_mean <= 0, 1e-10, out_dry_stripe_len_mean)
 
-    _, dip_p_value = diptest.diptest(np.log(within_dry_stripe_wid_mean))
-
     # t test
     wid_up = stats.ttest_rel(np.log(within_dry_stripe_wid_mean), np.log(out_dry_stripe_wid_up_mean))
     p_wid_up = wid_up.pvalue
@@ -141,9 +138,9 @@ def stripe_t_test_len_slant_within_out(mat_observed_big,dry_stripe_width_loci,dr
 
     if np.isnan(p_wid_up) or np.isnan(p_wid_down) or np.isnan(p_len):
         print("Skipping this test due to invalid p-values.")
-        return None, None, None, None, None, None, None, None, None, None
+        return None, None, None, None, None, None, None, None, None
     else:
-        return stripe_width, stripe_length, left_or_right, wid_up_single_tail, wid_down_single_tail, len_single_tail, foldchange_wid_up, foldchange_wid_down, foldchange_len, dip_p_value
+        return stripe_width, stripe_length, left_or_right, wid_up_single_tail, wid_down_single_tail, len_single_tail, foldchange_wid_up, foldchange_wid_down, foldchange_len
 
 
 
@@ -174,7 +171,7 @@ def calculate_observed_expected_matrix(matrix):
             diagonal_mean = np.mean(diagonal_elements)
             
             if diagonal_mean == 0:
-                diagonal_mean = 1e-10  # 避免除零
+                diagonal_mean = 1e-10 
             
             oe_matrix[i, j] = matrix[i, j] / diagonal_mean
     
@@ -433,12 +430,12 @@ def nosplit_and_call_stripes(matrix, top_k, penalty, fold_thresh, max_width, min
             print("Skipped stripe due to invalid p-values.")
             continue
 
-        # Format: width range, length range, direction, p-values, fold changes, dip p-value
+        # Format: width range, length range, direction, p-values, fold changes
         result_entry = [
             test_result[0],                     # stripe width (start, end)
             [length_loci, test_result[1]],      # stripe length (anchor, length)
             test_result[2],                     # stripe direction ("left" or "right")
-            *test_result[3:9]                   # p-values, fold changes, dip test p
+            *test_result[3:9]                   # p-values, fold changes
         ]
         results.append(result_entry)
 
@@ -555,7 +552,7 @@ def split_and_call_stripes(matrix, top_k, penalty, fold_thresh, split_len, step_
                 global_width, global_length, result[2],  # width, length, direction
                 p_wid_up, p_wid_down, p_len,             # p-values
                 *result[6:9],                            # fold changes
-                result[9], idx + 1                       # dip p-value, submatrix id
+                idx + 1                                  # submatrix id
             ])
 
     return stripe_results, all_changepoints
@@ -695,16 +692,8 @@ def _safe_ge(x: float, thr: float) -> bool:
 def apply_filters(
     stripes: List[list],
     fc_wid_cut: float,
-    fc_len_cut: float,
-    enable_dip: bool,
-    dip_cut: float = 0.05,
+    fc_len_cut: float
 ) -> None:
-    """
-    Append two flags at the end of each stripe row:
-      - pass_fc
-      - pass_dip
-    Assumes columns 6,7,8 are fc_wid_up, fc_wid_down, fc_len; column 9 is dip_p.
-    """
     if not stripes:
         return
 
@@ -712,9 +701,6 @@ def apply_filters(
         fc_ok = (_safe_ge(s[6], fc_wid_cut) and _safe_ge(s[7], fc_wid_cut) and _safe_ge(s[8], fc_len_cut))
         s.append(1 if fc_ok else 0)
 
-    for s in stripes:
-        dip_ok = (s[9] >= dip_cut) if enable_dip else True
-        s.append(1 if dip_ok else 0)
 
 
 def write_outputs(
@@ -732,7 +718,6 @@ def write_outputs(
     p_thresh_len: float,
     fc_thresh_wid: float,
     fc_thresh_len: float,
-    add_dip: str,
 ) -> Path:
     """
     Write changepoints + stripes table. Returns the stripes table path.
@@ -755,12 +740,10 @@ def write_outputs(
         "fc_wid_up",
         "fc_wid_down",
         "fc_len",
-        "dip_p",
     ]
     if is_split:
         header.append("split_mat_id")
-    # Your engine already appends 'pass_t' earlier; here we only add pass_fc & pass_dip:
-    header += ["pass_t", "pass_fc", "pass_dip"]
+    header += ["pass_t", "pass_fc"]
 
     result_file = out_dir / (
         "results_"
@@ -768,8 +751,7 @@ def write_outputs(
         f"_split{split_length}_step{step_size}"
         f"_wid{max_width}_len{min_length}"
         f"_p{p_thresh_wid}_{p_thresh_len}"
-        f"_fc{fc_thresh_wid}_{fc_thresh_len}"
-        f"_dip{add_dip.upper()}_unidentified_stripe.csv"
+        f"_fc{fc_thresh_wid}_{fc_thresh_len}_unidentified_stripe.csv"
     )
 
     df = pd.DataFrame(stripes, columns=header) if stripes else pd.DataFrame(columns=header)
@@ -793,11 +775,9 @@ def run_pipeline(
     p_thresh_len: float = 5e-2,
     fc_thresh_wid: float = 1.1,
     fc_thresh_len: float = 3.0,
-    add_dip: str = "N",
     chrom: str,                  
     cool_norm: str = "weight",
 ) -> Path:
-    """High-level function: load → call stripes → p-value correction → filters → write outputs."""
     if not isinstance(chrom, str) or chrom.strip() == "" or (":" in chrom):
         raise ValueError("`chrom` is required and must be a chromosome name like 'chr1' (no region).")
 
@@ -824,13 +804,10 @@ def run_pipeline(
 
     # adjust p-values + filters
     stripes = correct_pvalues(stripes, p_thresh_wid, p_thresh_len)
-    enable_dip = (add_dip.upper() == "Y")
     apply_filters(
         stripes,
         fc_wid_cut=fc_thresh_wid,
         fc_len_cut=fc_thresh_len,
-        enable_dip=enable_dip,
-        dip_cut=0.05,
     )
 
     # write under chrom subfolder
@@ -842,5 +819,4 @@ def run_pipeline(
         max_width=max_width, min_length=min_length,
         p_thresh_wid=p_thresh_wid, p_thresh_len=p_thresh_len,
         fc_thresh_wid=fc_thresh_wid, fc_thresh_len=fc_thresh_len,
-        add_dip=add_dip,
     )

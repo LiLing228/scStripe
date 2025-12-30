@@ -26,7 +26,6 @@ def detect(
     p_thresh_len: float = typer.Option(5e-2, "--p-thresh-len"),
     fc_thresh_wid: float = typer.Option(1.1, "--fc-thresh-wid"),
     fc_thresh_len: float = typer.Option(3.0, "--fc-thresh-len"),
-    add_dip: str = typer.Option("N", "--add-dip"),
     chrom: str = typer.Option(..., "--chrom", help="Chromosome name, e.g. 'chr1'"),
     cool_norm: str = typer.Option("weight", "--norm", help="'weight' | 'None' | a bins() column in the .cool"),
 ):
@@ -48,7 +47,6 @@ def detect(
         p_thresh_len=p_thresh_len,
         fc_thresh_wid=fc_thresh_wid,
         fc_thresh_len=fc_thresh_len,
-        add_dip=add_dip,
         chrom=chrom,           
         cool_norm=cool_norm,
     )
