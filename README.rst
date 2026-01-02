@@ -168,12 +168,6 @@ Options:
   --fc-thresh-wid FLOAT     Fold-change threshold for stripe width.
                             [default: 1.1]
 
-  --fc-thresh-len FLOAT     Fold-change threshold for stripe length.
-                            [default: 3.0]
-
-  --add-dip TEXT            Whether to also detect “dip” patterns inside
-                            stripes ('Y' or 'N').  [default: N]
-
 
 **postprocess**
    Merge results from chromosome-level detection, remove redundant stripes, and produce unified outputs. 

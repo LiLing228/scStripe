@@ -114,7 +114,6 @@ def stripe_t_test_len_slant_within_out(mat_observed_big,dry_stripe_width_loci,dr
 
     foldchange_wid_up = np.mean(within_dry_stripe_wid_mean)/np.mean(out_dry_stripe_wid_up_mean)
     foldchange_wid_down = np.mean(within_dry_stripe_wid_mean)/np.mean(out_dry_stripe_wid_down_mean)
-    foldchange_len = 4
 
     within_dry_stripe_wid_mean = np.where(within_dry_stripe_wid_mean <= 0, 1e-10, within_dry_stripe_wid_mean)
     out_dry_stripe_wid_up_mean = np.where(out_dry_stripe_wid_up_mean <= 0, 1e-10, out_dry_stripe_wid_up_mean)
@@ -138,9 +137,9 @@ def stripe_t_test_len_slant_within_out(mat_observed_big,dry_stripe_width_loci,dr
 
     if np.isnan(p_wid_up) or np.isnan(p_wid_down) or np.isnan(p_len):
         print("Skipping this test due to invalid p-values.")
-        return None, None, None, None, None, None, None, None, None
+        return None, None, None, None, None, None, None, None
     else:
-        return stripe_width, stripe_length, left_or_right, wid_up_single_tail, wid_down_single_tail, len_single_tail, foldchange_wid_up, foldchange_wid_down, foldchange_len
+        return stripe_width, stripe_length, left_or_right, wid_up_single_tail, wid_down_single_tail, len_single_tail, foldchange_wid_up, foldchange_wid_down
 
 
 
@@ -435,7 +434,7 @@ def nosplit_and_call_stripes(matrix, top_k, penalty, fold_thresh, max_width, min
             test_result[0],                     # stripe width (start, end)
             [length_loci, test_result[1]],      # stripe length (anchor, length)
             test_result[2],                     # stripe direction ("left" or "right")
-            *test_result[3:9]                   # p-values, fold changes
+            *test_result[3:8]                   # p-values, fold changes
         ]
         results.append(result_entry)
 
@@ -551,7 +550,7 @@ def split_and_call_stripes(matrix, top_k, penalty, fold_thresh, split_len, step_
             stripe_results.append([
                 global_width, global_length, result[2],  # width, length, direction
                 p_wid_up, p_wid_down, p_len,             # p-values
-                *result[6:9],                            # fold changes
+                *result[6:8],                            # fold changes
                 idx + 1                                  # submatrix id
             ])
 
@@ -692,13 +691,12 @@ def _safe_ge(x: float, thr: float) -> bool:
 def apply_filters(
     stripes: List[list],
     fc_wid_cut: float,
-    fc_len_cut: float
 ) -> None:
     if not stripes:
         return
 
     for s in stripes:
-        fc_ok = (_safe_ge(s[6], fc_wid_cut) and _safe_ge(s[7], fc_wid_cut) and _safe_ge(s[8], fc_len_cut))
+        fc_ok = (_safe_ge(s[6], fc_wid_cut) and _safe_ge(s[7], fc_wid_cut))
         s.append(1 if fc_ok else 0)
 
 
@@ -717,7 +715,6 @@ def write_outputs(
     p_thresh_wid: float,
     p_thresh_len: float,
     fc_thresh_wid: float,
-    fc_thresh_len: float,
 ) -> Path:
     """
     Write changepoints + stripes table. Returns the stripes table path.
@@ -739,7 +736,6 @@ def write_outputs(
         "p_len",
         "fc_wid_up",
         "fc_wid_down",
-        "fc_len",
     ]
     if is_split:
         header.append("split_mat_id")
@@ -751,7 +747,7 @@ def write_outputs(
         f"_split{split_length}_step{step_size}"
         f"_wid{max_width}_len{min_length}"
         f"_p{p_thresh_wid}_{p_thresh_len}"
-        f"_fc{fc_thresh_wid}_{fc_thresh_len}_unidentified_stripe.csv"
+        f"_fc{fc_thresh_wid}_unidentified_stripe.csv"
     )
 
     df = pd.DataFrame(stripes, columns=header) if stripes else pd.DataFrame(columns=header)
@@ -774,7 +770,6 @@ def run_pipeline(
     p_thresh_wid: float = 1e-3,
     p_thresh_len: float = 5e-2,
     fc_thresh_wid: float = 1.1,
-    fc_thresh_len: float = 3.0,
     chrom: str,                  
     cool_norm: str = "weight",
 ) -> Path:
@@ -785,7 +780,7 @@ def run_pipeline(
         raise ValueError("max_width and min_length must be positive.")
     if p_thresh_wid <= 0 or p_thresh_len <= 0:
         raise ValueError("p-value thresholds must be > 0.")
-    if fc_thresh_wid <= 0 or fc_thresh_len <= 0:
+    if fc_thresh_wid <= 0 :
         raise ValueError("fold-change thresholds must be > 0.")
 
     # load matrix (cool/text)
@@ -807,7 +802,6 @@ def run_pipeline(
     apply_filters(
         stripes,
         fc_wid_cut=fc_thresh_wid,
-        fc_len_cut=fc_thresh_len,
     )
 
     # write under chrom subfolder
@@ -818,5 +812,5 @@ def run_pipeline(
         split_length=split_length, step_size=step_size,
         max_width=max_width, min_length=min_length,
         p_thresh_wid=p_thresh_wid, p_thresh_len=p_thresh_len,
-        fc_thresh_wid=fc_thresh_wid, fc_thresh_len=fc_thresh_len,
+        fc_thresh_wid=fc_thresh_wid, 
     )
