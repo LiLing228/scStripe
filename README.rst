@@ -231,6 +231,11 @@ Options:
   --q2 FLOAT             Fraction along the stripe (measured from the distal
                          end) at which the scoring subregion ends
                          (must be > q1).  [default: 0.5]
+   
+  --flanking TEXT        Which flanking region to use as background: 
+                        'both' (default, use both sides), 
+                        'inside' (use inner flank only), 
+                        'outside' (use outer flank only).  [default: 'both']
 
   --n-jobs INTEGER       Number of parallel workers used for per-cell
                          scoring.  [default: 40]

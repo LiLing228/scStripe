@@ -84,6 +84,7 @@ def score_cells(
     pos2_col: int = typer.Option(..., "--pos2-col", help="0-based index in pairs txt"),
     q1: float = typer.Option(0.0, "--q1", help="Fraction along stripe (distal end) to begin the subregion (0..1)"),
     q2: float = typer.Option(0.5, "--q2", help="Fraction along stripe (distal end) to end the subregion (0..1), must be > q1"),
+    flanking: str = typer.Option("both", "--flanking", help="Which flanking region to use: both / inside / outside"),
     n_jobs: int = typer.Option(40, "--n-jobs", help="Parallel workers"),
 ):
     """Compute stripe scores per cell for a given cell type using per-cell pairs .txt files."""
@@ -100,6 +101,7 @@ def score_cells(
         pos2_col=pos2_col,
         q1=q1,
         q2=q2,
+        flanking=flanking,
         n_jobs=n_jobs,
     )
     typer.echo(f"[OK] Saved to: {out}")
