@@ -231,6 +231,7 @@ def run_stripe_scores(
             log_path=log_path,
             q1=q1,
             q2=q2,
+            flanking=flanking
         )
         for cellname in cellnames
     )

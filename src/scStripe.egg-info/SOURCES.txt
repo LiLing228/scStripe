@@ -1,4 +1,4 @@
-README.md
+README.rst
 pyproject.toml
 src/scStripe/__init__.py
 src/scStripe/add_stripiness.py
