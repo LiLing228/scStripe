@@ -237,6 +237,10 @@ Options:
                         'inside' (use inner flank only), 
                         'outside' (use outer flank only).  [default: 'both']
 
+  --flanking-range INTEGER    Width (in bp) of the flanking region used as background.
+                              If not specified, the flanking region will have the same width
+                              as the stripe (default behavior).  [default: None]
+                              
   --n-jobs INTEGER       Number of parallel workers used for per-cell
                          scoring.  [default: 40]
 

@@ -19,8 +19,14 @@ def _process_cell(
     q1: float,
     q2: float,
     flanking: str, 
+    flanking_range: int | None,  
 ) -> pd.Series:
     flanking = str(flanking).lower().strip()
+    if flanking_range is not None:
+        flanking_range = int(flanking_range)
+        if flanking_range <= 0:
+            raise ValueError("flanking_range must be a positive integer, or None")
+        
     if flanking not in ("both", "inside", "outside"):
         raise ValueError(f"Invalid flanking={flanking}, must be one of both/inside/outside")
 
@@ -76,7 +82,7 @@ def _process_cell(
             col_start, col_end = p3, p4
             wid_L = row_end - row_start
             len_L = col_end - col_start
-
+            flank_L = wid_L if flanking_range is None else flanking_range  
             sub_start = col_start + int(math.floor(len_L * (1.0 - q2)))
             sub_end = col_end - int(math.floor(len_L * q1))
 
@@ -93,14 +99,14 @@ def _process_cell(
                 # --- define two flanks separately ---
                 outside_mask = (
                     (df_pairs["chr1"] == chr1)
-                    & (df_pairs["pos1"].between(row_start - wid_L, row_start - 1))  
+                    & (df_pairs["pos1"].between(row_start - flank_L, row_start - 1))  
                     & (df_pairs["chr2"] == chr2)
                     & (df_pairs["pos2"].between(sub_start, sub_end))
                 )
 
                 inside_mask = (
                     (df_pairs["chr1"] == chr1)
-                    & (df_pairs["pos1"].between(row_end + 1, row_end + wid_L))     
+                    & (df_pairs["pos1"].between(row_end + 1, row_end + flank_L))     
                     & (df_pairs["chr2"] == chr2)
                     & (df_pairs["pos2"].between(sub_start, sub_end))
                 )
@@ -118,6 +124,7 @@ def _process_cell(
             row_start, row_end = p3, p4
             wid_L = col_end - col_start
             len_L = row_end - row_start
+            flank_L = wid_L if flanking_range is None else flanking_range
 
             sub_start = row_start + int(math.floor(len_L * q1))
             sub_end = row_end - int(math.floor(len_L * (1.0 - q2)))
@@ -137,14 +144,14 @@ def _process_cell(
                     (df_pairs["chr1"] == chr1)
                     & (df_pairs["pos1"].between(sub_start, sub_end))
                     & (df_pairs["chr2"] == chr2)
-                    & (df_pairs["pos2"].between(col_end + 1, col_end + wid_L))      
+                    & (df_pairs["pos2"].between(col_end + 1, col_end + flank_L))      
                 )
 
                 inside_mask = (
                     (df_pairs["chr1"] == chr1)
                     & (df_pairs["pos1"].between(sub_start, sub_end))
                     & (df_pairs["chr2"] == chr2)
-                    & (df_pairs["pos2"].between(col_start - wid_L, col_start - 1))
+                    & (df_pairs["pos2"].between(col_start - flank_L, col_start - 1))
                 )
 
                 if flanking == "both":
@@ -186,6 +193,7 @@ def run_stripe_scores(
     q1: float = 0.0,
     q2: float = 0.5,
     flanking: str,  
+    flanking_range: int | None = None,
     n_jobs: int = 40,
 ) -> Path:
     """Compute stripe scores per cell and save a TSV; returns output path."""
@@ -231,7 +239,8 @@ def run_stripe_scores(
             log_path=log_path,
             q1=q1,
             q2=q2,
-            flanking=flanking
+            flanking=flanking,
+            flanking_range=flanking_range
         )
         for cellname in cellnames
     )
