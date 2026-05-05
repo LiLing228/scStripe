@@ -17,6 +17,7 @@ def detect(
     input: Path = typer.Option(..., "--input", help="Path to input contact matrix (.txt or .cool)"),
     output: Path = typer.Option(..., "--output", "-o", help="Output base directory (results will go into OUTPUT/CHROM/)"),
     penalty: float = typer.Option(0.1, "--penalty"),
+    eigenvalue_ratio: float = typer.Option(1.1, "--eigenvalue-ratio"),
     fold_threshold1: float = typer.Option(1.3, "--fold-threshold1"),
     split_length: int = typer.Option(200, "--split-length"),
     step_size: int = typer.Option(50, "--step-size"),
@@ -37,6 +38,7 @@ def detect(
         input_matrix=input,
         output_dir=output,         
         penalty=penalty,
+        eigenvalue_ratio=eigenvalue_ratio,
         fold_threshold1=fold_threshold1,
         split_length=split_length,
         step_size=step_size,
@@ -86,6 +88,7 @@ def score_cells(
     q2: float = typer.Option(0.5, "--q2", help="Fraction along stripe (distal end) to end the subregion (0..1), must be > q1"),
     flanking: str = typer.Option("both", "--flanking", help="Which flanking region to use: both / inside / outside"),
     flanking_range: int | None = typer.Option(None, "--flanking-range", help="Width of flanking region in bp. Default: same width as stripe."),
+    flank_dis_decay: bool = typer.Option(False, "--flank-dis-decay", help="Enable distance-decay aware flanking."),
     n_jobs: int = typer.Option(40, "--n-jobs", help="Parallel workers"),
 ):
     """Compute stripe scores per cell for a given cell type using per-cell pairs .txt files."""
@@ -104,6 +107,7 @@ def score_cells(
         q2=q2,
         flanking=flanking,
         flanking_range=flanking_range,
+        flank_dis_decay=flank_dis_decay,
         n_jobs=n_jobs,
     )
     typer.echo(f"[OK] Saved to: {out}")

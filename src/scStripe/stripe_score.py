@@ -19,17 +19,18 @@ def _process_cell(
     q1: float,
     q2: float,
     flanking: str, 
-    flanking_range: int | None,  
+    flanking_range: int | None, 
+    flank_dis_decay: bool, 
 ) -> pd.Series:
     flanking = str(flanking).lower().strip()
+    if flanking not in ("both", "inside", "outside"):
+        raise ValueError(f"Invalid flanking={flanking}, must be one of both/inside/outside")
+
     if flanking_range is not None:
         flanking_range = int(flanking_range)
         if flanking_range <= 0:
             raise ValueError("flanking_range must be a positive integer, or None")
         
-    if flanking not in ("both", "inside", "outside"):
-        raise ValueError(f"Invalid flanking={flanking}, must be one of both/inside/outside")
-
     if not (0.0 <= q1 < q2 <= 1.0):
         raise ValueError(f"Invalid q1,q2: {q1},{q2} (require 0 <= q1 < q2 <= 1)")
 
@@ -80,86 +81,176 @@ def _process_cell(
         if p1 == p3:
             row_start, row_end = p1, p2
             col_start, col_end = p3, p4
-            wid_L = row_end - row_start
-            len_L = col_end - col_start
-            flank_L = wid_L if flanking_range is None else flanking_range  
-            sub_start = col_start + int(math.floor(len_L * (1.0 - q2)))
-            sub_end = col_end - int(math.floor(len_L * q1))
+            wid_L = row_end - row_start + 1
+            len_L = col_end - col_start + 1
+            flank_L = wid_L if flanking_range is None else flanking_range
 
-            if sub_start > sub_end:
-                main_mask = pd.Series(False, index=df_pairs.index)
-                flank_mask = pd.Series(False, index=df_pairs.index)
+            if flank_dis_decay:
+                dA = col_start - row_start
+                dB = col_end   - row_end
+                d_low  = min(dA, dB)
+                d_high = max(dA, dB)
+                d_len  = d_high - d_low
+
+                d_sub_start = d_low  + int(math.floor(d_len * (1.0 - q2)))
+                d_sub_end   = d_high - int(math.floor(d_len * q1))
+
+                if d_sub_start > d_sub_end:
+                    main_mask = pd.Series(False, index=df_pairs.index)
+                    flank_mask = pd.Series(False, index=df_pairs.index)
+                else:
+                    dmask = (df_pairs["pos2"] - df_pairs["pos1"]).between(d_sub_start, d_sub_end)
+
+                    main_mask = (
+                        (df_pairs["chr1"] == chr1)
+                        & (df_pairs["pos1"].between(row_start, row_end))
+                        & (df_pairs["chr2"] == chr2)
+                        & dmask
+                    )
+
+                    outside_mask = (
+                        (df_pairs["chr1"] == chr1)
+                        & (df_pairs["pos1"].between(row_start - flank_L, row_start - 1))
+                        & (df_pairs["chr2"] == chr2)
+                        & dmask
+                    )
+
+                    inside_mask = (
+                        (df_pairs["chr1"] == chr1)
+                        & (df_pairs["pos1"].between(row_end + 1, row_end + flank_L))
+                        & (df_pairs["chr2"] == chr2)
+                        & dmask
+                    )
+
+                    if flanking == "both":
+                        flank_mask = outside_mask | inside_mask
+                    elif flanking == "inside":
+                        flank_mask = inside_mask
+                    else:
+                        flank_mask = outside_mask
+
             else:
-                main_mask = (
-                    (df_pairs["chr1"] == chr1)
-                    & (df_pairs["pos1"].between(row_start, row_end))
-                    & (df_pairs["chr2"] == chr2)
-                    & (df_pairs["pos2"].between(sub_start, sub_end))
-                )
-                # --- define two flanks separately ---
-                outside_mask = (
-                    (df_pairs["chr1"] == chr1)
-                    & (df_pairs["pos1"].between(row_start - flank_L, row_start - 1))  
-                    & (df_pairs["chr2"] == chr2)
-                    & (df_pairs["pos2"].between(sub_start, sub_end))
-                )
+                sub_start = col_start + int(math.floor(len_L * (1.0 - q2)))
+                sub_end   = col_end   - int(math.floor(len_L * q1))
 
-                inside_mask = (
-                    (df_pairs["chr1"] == chr1)
-                    & (df_pairs["pos1"].between(row_end + 1, row_end + flank_L))     
-                    & (df_pairs["chr2"] == chr2)
-                    & (df_pairs["pos2"].between(sub_start, sub_end))
-                )
+                if sub_start > sub_end:
+                    main_mask = pd.Series(False, index=df_pairs.index)
+                    flank_mask = pd.Series(False, index=df_pairs.index)
+                else:
+                    main_mask = (
+                        (df_pairs["chr1"] == chr1)
+                        & (df_pairs["pos1"].between(row_start, row_end))
+                        & (df_pairs["chr2"] == chr2)
+                        & (df_pairs["pos2"].between(sub_start, sub_end))
+                    )
+                    outside_mask = (
+                        (df_pairs["chr1"] == chr1)
+                        & (df_pairs["pos1"].between(row_start - flank_L, row_start - 1))
+                        & (df_pairs["chr2"] == chr2)
+                        & (df_pairs["pos2"].between(sub_start, sub_end))
+                    )
+                    inside_mask = (
+                        (df_pairs["chr1"] == chr1)
+                        & (df_pairs["pos1"].between(row_end + 1, row_end + flank_L))
+                        & (df_pairs["chr2"] == chr2)
+                        & (df_pairs["pos2"].between(sub_start, sub_end))
+                    )
+                    if flanking == "both":
+                        flank_mask = outside_mask | inside_mask
+                    elif flanking == "inside":
+                        flank_mask = inside_mask
+                    else:
+                        flank_mask = outside_mask
 
-                if flanking == "both":
-                    flank_mask = outside_mask | inside_mask
-                elif flanking == "inside":
-                    flank_mask = inside_mask
-                else:  # flanking == "outside"
-                    flank_mask = outside_mask
 
         # vertical stripe (p2 == p4)
         elif p2 == p4:
             col_start, col_end = p1, p2
             row_start, row_end = p3, p4
-            wid_L = col_end - col_start
-            len_L = row_end - row_start
+
+            wid_L = col_end - col_start + 1
+            len_L = row_end - row_start + 1
             flank_L = wid_L if flanking_range is None else flanking_range
 
-            sub_start = row_start + int(math.floor(len_L * q1))
-            sub_end = row_end - int(math.floor(len_L * (1.0 - q2)))
+            if flank_dis_decay:
+                dA = col_start - row_start
+                dB = col_end   - row_end
+                d_low  = min(dA, dB)
+                d_high = max(dA, dB)
+                d_len  = d_high - d_low
 
-            if sub_start > sub_end:
-                main_mask = pd.Series(False, index=df_pairs.index)
-                flank_mask = pd.Series(False, index=df_pairs.index)
+                d_sub_start = d_low  + int(math.floor(d_len * (1.0 - q2)))
+                d_sub_end   = d_high - int(math.floor(d_len * q1))
+
+                if d_sub_start > d_sub_end:
+                    main_mask = pd.Series(False, index=df_pairs.index)
+                    flank_mask = pd.Series(False, index=df_pairs.index)
+                else:
+                    dmask = (df_pairs["pos2"] - df_pairs["pos1"]).between(d_sub_start, d_sub_end)
+
+                    main_mask = (
+                        (df_pairs["chr1"] == chr1)
+                        & (df_pairs["chr2"] == chr2)
+                        & (df_pairs["pos2"].between(col_start, col_end))
+                        & dmask
+                    )
+
+                    outside_mask = (
+                        (df_pairs["chr1"] == chr1)
+                        & (df_pairs["chr2"] == chr2)
+                        & (df_pairs["pos2"].between(col_end + 1, col_end + flank_L))
+                        & dmask
+                    )
+
+                    inside_mask = (
+                        (df_pairs["chr1"] == chr1)
+                        & (df_pairs["chr2"] == chr2)
+                        & (df_pairs["pos2"].between(col_start - flank_L, col_start - 1))
+                        & dmask
+                    )
+
+                    if flanking == "both":
+                        flank_mask = outside_mask | inside_mask
+                    elif flanking == "inside":
+                        flank_mask = inside_mask
+                    else:
+                        flank_mask = outside_mask
+
             else:
-                main_mask = (
-                    (df_pairs["chr1"] == chr1)
-                    & (df_pairs["pos1"].between(sub_start, sub_end))
-                    & (df_pairs["chr2"] == chr2)
-                    & (df_pairs["pos2"].between(col_start, col_end))
-                )
+                sub_start = row_start + int(math.floor(len_L * q1))
+                sub_end = row_end - int(math.floor(len_L * (1.0 - q2)))
 
-                outside_mask = (
-                    (df_pairs["chr1"] == chr1)
-                    & (df_pairs["pos1"].between(sub_start, sub_end))
-                    & (df_pairs["chr2"] == chr2)
-                    & (df_pairs["pos2"].between(col_end + 1, col_end + flank_L))      
-                )
+                if sub_start > sub_end:
+                    main_mask = pd.Series(False, index=df_pairs.index)
+                    flank_mask = pd.Series(False, index=df_pairs.index)
+                else:
+                    main_mask = (
+                        (df_pairs["chr1"] == chr1)
+                        & (df_pairs["pos1"].between(sub_start, sub_end))
+                        & (df_pairs["chr2"] == chr2)
+                        & (df_pairs["pos2"].between(col_start, col_end))
+                    )
 
-                inside_mask = (
-                    (df_pairs["chr1"] == chr1)
-                    & (df_pairs["pos1"].between(sub_start, sub_end))
-                    & (df_pairs["chr2"] == chr2)
-                    & (df_pairs["pos2"].between(col_start - flank_L, col_start - 1))
-                )
+                    outside_mask = (
+                        (df_pairs["chr1"] == chr1)
+                        & (df_pairs["pos1"].between(sub_start, sub_end))
+                        & (df_pairs["chr2"] == chr2)
+                        & (df_pairs["pos2"].between(col_end + 1, col_end + flank_L))      
+                    )
 
-                if flanking == "both":
-                    flank_mask = outside_mask | inside_mask
-                elif flanking == "inside":
-                    flank_mask = inside_mask
-                else:  # flanking == "outside"
-                    flank_mask = outside_mask
+                    inside_mask = (
+                        (df_pairs["chr1"] == chr1)
+                        & (df_pairs["pos1"].between(sub_start, sub_end))
+                        & (df_pairs["chr2"] == chr2)
+                        & (df_pairs["pos2"].between(col_start - flank_L, col_start - 1))
+                    )
+
+                    if flanking == "both":
+                        flank_mask = outside_mask | inside_mask
+                    elif flanking == "inside":
+                        flank_mask = inside_mask
+                    else:  # flanking == "outside"
+                        flank_mask = outside_mask
 
         else:
             ratios.append(0.0)
@@ -194,6 +285,7 @@ def run_stripe_scores(
     q2: float = 0.5,
     flanking: str,  
     flanking_range: int | None = None,
+    flank_dis_decay: bool = False,
     n_jobs: int = 40,
 ) -> Path:
     """Compute stripe scores per cell and save a TSV; returns output path."""
@@ -240,7 +332,8 @@ def run_stripe_scores(
             q1=q1,
             q2=q2,
             flanking=flanking,
-            flanking_range=flanking_range
+            flanking_range=flanking_range,
+            flank_dis_decay=flank_dis_decay
         )
         for cellname in cellnames
     )

@@ -40,28 +40,28 @@ def extract_submatrix_by_diag(matrix, k_start, k_end, c_start, c_end, side="left
 
 
 
-def compare_eigenvalues(nums):
+def compare_eigenvalues(nums, eigenvalue_ratio):
     if np.all(nums == 0):
         return None
     
     for i in range(np.shape(nums)[0] - 1):
         if nums[i+1] == 0:
             return i
-        if i > 0 and nums[i-1] / nums[i] < 1.1 and nums[i] / nums[i+1] < 1.1:
+        if i > 0 and nums[i-1] / nums[i] < eigenvalue_ratio and nums[i] / nums[i+1] < eigenvalue_ratio:
             return i
     return None
 
 
 
 
-def get_stripe_algo_from_matrix(mat_observed, top_i, compare_eigenvalues_fn):
+def get_stripe_algo_from_matrix(mat_observed, top_i, compare_eigenvalues_fn, eigenvalue_ratio):
     mat_sym = (mat_observed + mat_observed.T) / 2
     eigenvalue_B, featurevector_B = np.linalg.eigh(mat_sym)
     sorted_indices = np.argsort(eigenvalue_B)[::-1]
     top_10_indices = sorted_indices[:10]
 
     if top_i == 0:
-        n_selected = compare_eigenvalues_fn(eigenvalue_B[top_10_indices])
+        n_selected = compare_eigenvalues_fn(eigenvalue_B[top_10_indices], eigenvalue_ratio)
         featurevector_topi = featurevector_B[:, top_10_indices[:n_selected]]
     else:
         featurevector_topi = featurevector_B[:, top_10_indices[:top_i]]
@@ -360,7 +360,7 @@ def adjust_stripe_position(matrix, extend_bins, min_length, width_range, length_
 
 
 
-def nosplit_and_call_stripes(matrix, top_k, penalty, fold_thresh, max_width, min_length):
+def nosplit_and_call_stripes(matrix, top_k, penalty, fold_thresh, max_width, min_length, eigenvalue_ratio):
     """
     Identify stripe regions from a Hi-C matrix without initial segmentation.
 
@@ -393,7 +393,7 @@ def nosplit_and_call_stripes(matrix, top_k, penalty, fold_thresh, max_width, min
     mat_oe_big[extend_bins:extend_bins + mat_n, extend_bins:extend_bins + mat_n] = mat_oe
 
     # === Changepoint detection using eigenvalue-based algorithm ===
-    algo = get_stripe_algo_from_matrix(mat_obs, top_k, compare_eigenvalues)
+    algo = get_stripe_algo_from_matrix(mat_obs, top_k, compare_eigenvalues, eigenvalue_ratio)
     bkps = algo.predict(pen=penalty)[:-1] 
 
     if len(bkps) < 3:
@@ -443,7 +443,7 @@ def nosplit_and_call_stripes(matrix, top_k, penalty, fold_thresh, max_width, min
 
 
 
-def split_and_call_stripes(matrix, top_k, penalty, fold_thresh, split_len, step_size, max_width, min_length):
+def split_and_call_stripes(matrix, top_k, penalty, fold_thresh, split_len, step_size, max_width, min_length, eigenvalue_ratio):
     """
     Identify stripes in a large Hi-C matrix by splitting into submatrices.
 
@@ -504,7 +504,7 @@ def split_and_call_stripes(matrix, top_k, penalty, fold_thresh, split_len, step_
     # === Process each submatrix ===
     for idx, (sub_obs, sub_oe_big) in enumerate(zip(sub_matrices, sub_matrices_oe_big)):
         try:
-            algo = get_stripe_algo_from_matrix(sub_obs, top_k, compare_eigenvalues)
+            algo = get_stripe_algo_from_matrix(sub_obs, top_k, compare_eigenvalues, eigenvalue_ratio)
             bkps = algo.predict(pen=penalty)[:-1]
         except Exception as e:
             print(f"Submatrix {idx} ruptures failed: {e}")
@@ -655,16 +655,17 @@ def call_stripes(
     step_size: int,
     max_width: int,
     min_length: int,
+    eigenvalue_ratio: float
 ) -> Tuple[List[list], List[int]]:
     """Call stripes with or without matrix splitting, return (stripes, changepoints)."""
     top_k = 0
     if split_length and split_length > 0:
         stripes, bkps = split_and_call_stripes(
-            mat, top_k, penalty, fold_threshold1, split_length, step_size, max_width, min_length
+            mat, top_k, penalty, fold_threshold1, split_length, step_size, max_width, min_length, eigenvalue_ratio
         )
     else:
         stripes, bkps = nosplit_and_call_stripes(
-            mat, top_k, penalty, fold_threshold1, max_width, min_length
+            mat, top_k, penalty, fold_threshold1, max_width, min_length, eigenvalue_ratio
         )
     return stripes, bkps
 
@@ -715,6 +716,7 @@ def write_outputs(
     p_thresh_wid: float,
     p_thresh_len: float,
     fc_thresh_wid: float,
+    eigenvalue_ratio: float
 ) -> Path:
     """
     Write changepoints + stripes table. Returns the stripes table path.
@@ -770,6 +772,7 @@ def run_pipeline(
     p_thresh_wid: float = 1e-3,
     p_thresh_len: float = 5e-2,
     fc_thresh_wid: float = 1.1,
+    eigenvalue_ratio: float = 1.1,
     chrom: str,                  
     cool_norm: str = "weight",
 ) -> Path:
@@ -795,6 +798,7 @@ def run_pipeline(
         step_size=step_size,
         max_width=max_width,
         min_length=min_length,
+        eigenvalue_ratio=eigenvalue_ratio
     )
 
     # adjust p-values + filters
@@ -811,6 +815,7 @@ def run_pipeline(
         penalty=penalty, fold_threshold1=fold_threshold1,
         split_length=split_length, step_size=step_size,
         max_width=max_width, min_length=min_length,
+        eigenvalue_ratio=eigenvalue_ratio,
         p_thresh_wid=p_thresh_wid, p_thresh_len=p_thresh_len,
         fc_thresh_wid=fc_thresh_wid, 
     )
