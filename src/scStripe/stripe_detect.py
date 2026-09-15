@@ -280,16 +280,22 @@ def calculate_fold_changes(submat, fold_threshold, max_width, min_length, bkps, 
             results.add((a, b, left_end))
 
     res_list = list(results)
+    if not res_list:
+        return []
+
     gts = [r for r in res_list if r[2] > r[1]]
     lts = [r for r in res_list if r[2] <= r[1]]
 
     merged_gts = merge_candidates(gts, use_max=True)
     merged_lts = merge_candidates(lts, use_max=False)
 
-    tuned_gts = tune_stripe_length(merged_gts, right, lambda a, b, p: p <= b and p - b >= min_length)
-    tuned_lts = tune_stripe_length(merged_lts, left, lambda a, b, p: p >= a and a - p >= min_length)
+    # all_points = sorted(set(bkps))
+    # tuned_gts = tune_stripe_length(merged_gts, all_points, lambda a, b, p: p > b and p - a >= min_length)
+    # tuned_lts = tune_stripe_length(merged_lts, all_points, lambda a, b, p: p < a and a - p >= min_length)
 
-    return tuned_gts + tuned_lts
+    # return tuned_gts + tuned_lts
+
+    return [list(x) for x in merged_gts + merged_lts]
 
 
 
